@@ -9,7 +9,7 @@ export type AutomationRunStatus =
   | "blocked"
   | "rate_limited";
 export type DiscoveryStatus = "new" | "accepted" | "dismissed";
-export type JobBoard = "jsearch";
+export type JobBoard = "jsearch" | "telegram";
 
 export interface Automation {
   id: string;
@@ -18,6 +18,7 @@ export interface Automation {
   jobBoard: JobBoard;
   keywords: string;
   location: string;
+  telegramChannels?: string[];
   resumeId: string;
   matchThreshold: number;
   scheduleHour: number;

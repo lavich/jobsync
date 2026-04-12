@@ -33,6 +33,7 @@ import {
   FileText,
   AlertTriangle,
   Zap,
+  PlayCircle,
 } from "lucide-react";
 import type { AutomationWithResume } from "@/models/automation.model";
 import {
@@ -56,6 +57,7 @@ export function AutomationList({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [runNowLoading, setRunNowLoading] = useState<string | null>(null);
 
   const handlePause = async (id: string) => {
     setLoadingAction(id);
@@ -89,6 +91,36 @@ export function AutomationList({
         variant: "destructive",
       });
     }
+  };
+
+  const handleRunNow = async (id: string) => {
+    setRunNowLoading(id);
+    try {
+      const response = await fetch(`/api/automations/${id}/run`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast({
+          title: "Automation run started",
+          description: `Saved ${data.run.jobsSaved} new jobs`,
+        });
+        onRefresh();
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to run automation",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to run automation",
+        variant: "destructive",
+      });
+    }
+    setRunNowLoading(null);
   };
 
   const handleDelete = async () => {
@@ -205,7 +237,7 @@ export function AutomationList({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" disabled={isLoading}>
+                  <Button variant="ghost" size="icon" disabled={isLoading || runNowLoading === automation.id}>
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -224,6 +256,13 @@ export function AutomationList({
                       Resume
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem
+                    onClick={() => handleRunNow(automation.id)}
+                    disabled={resumeMissing || automation.status === "paused"}
+                  >
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    Run Now
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onEdit(automation)}>
                     <Pencil className="h-4 w-4 mr-2" />
                     Edit

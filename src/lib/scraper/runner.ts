@@ -8,6 +8,7 @@ import type {
 } from "@/models/automation.model";
 import type { ScraperError, JobDetails } from "./types";
 import { searchJSearchJobs } from "./jsearch";
+import { searchTelegramChannels } from "./telegram";
 import { mapScrapedJobToJobRecord } from "./mapper";
 import { normalizeJobUrl } from "./utils";
 import { calculateNextRunAt } from "./schedule";
@@ -31,6 +32,15 @@ import {
   type AiSettings,
 } from "@/models/userSettings.model";
 import { resolveApiKey } from "@/lib/api-key-resolver";
+
+export function parseTelegramChannels(value: string | null | undefined): string[] | undefined {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as string[];
+  } catch {
+    return undefined;
+  }
+}
 
 const MAX_JOBS_PER_RUN = 10;
 
@@ -193,19 +203,58 @@ export async function runAutomation(
       `Resume loaded: ${resume.title}`,
     );
 
-    automationLogger.log(
-      automation.id,
-      "info",
-      `Searching for jobs: "${automation.keywords}" in ${automation.location}`,
-    );
+    let searchResult: Awaited<ReturnType<typeof searchJSearchJobs>>;
 
-    // Use JSearch API with user's key if available
-    const rapidApiKey = await resolveApiKey(automation.userId, "rapidapi");
-    const searchResult = await searchJSearchJobs(
-      automation.keywords,
-      automation.location,
-      rapidApiKey,
-    );
+    if (automation.jobBoard === "telegram") {
+      automationLogger.log(
+        automation.id,
+        "info",
+        `Searching Telegram channels: ${automation.telegramChannels?.join(", ") ?? "none"}`,
+      );
+
+      const telegramSession = await resolveApiKey(
+        automation.userId,
+        "telegram_session",
+      );
+
+      if (!telegramSession) {
+        automationLogger.log(
+          automation.id,
+          "error",
+          "No Telegram session found. Please connect your Telegram account in Settings.",
+        );
+        automationLogger.endRun(automation.id);
+        return await finalizeRun(run.id, {
+          status: "blocked",
+          blockedReason: "telegram_session_missing",
+          jobsSearched: 0,
+          jobsDeduplicated: 0,
+          jobsProcessed: 0,
+          jobsMatched: 0,
+          jobsSaved: 0,
+        });
+      }
+
+      const channels = automation.telegramChannels ?? [];
+      searchResult = await searchTelegramChannels(
+        channels,
+        telegramSession,
+        automation.lastRunAt,
+      );
+    } else {
+      automationLogger.log(
+        automation.id,
+        "info",
+        `Searching for jobs: "${automation.keywords}" in ${automation.location}`,
+      );
+
+      const rapidApiKey = await resolveApiKey(automation.userId, "rapidapi");
+      searchResult = await searchJSearchJobs(
+        automation.keywords,
+        automation.location,
+        rapidApiKey,
+      );
+    }
 
     if (!searchResult.success) {
       automationLogger.log(
@@ -236,10 +285,12 @@ export async function runAutomation(
 
     const jobsSearched = searchResult.data.length;
 
+    const sourceLabel =
+      automation.jobBoard === "telegram" ? "Telegram" : "JSearch API";
     automationLogger.log(
       automation.id,
       "success",
-      `Found ${jobsSearched} jobs from JSearch API`,
+      `Found ${jobsSearched} posts from ${sourceLabel}`,
       { jobsSearched },
     );
 

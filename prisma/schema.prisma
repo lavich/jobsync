@@ -380,11 +380,12 @@ model Automation {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  name           String
-  jobBoard       String
-  keywords       String
-  location       String
-  resumeId       String
+  name             String
+  jobBoard         String
+  keywords         String
+  location         String
+  telegramChannels String?
+  resumeId         String
   resume         Resume @relation(fields: [resumeId], references: [id])
   matchThreshold Int    @default(80)
 

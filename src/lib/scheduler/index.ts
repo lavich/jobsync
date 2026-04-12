@@ -1,7 +1,7 @@
 import cron, { ScheduledTask } from "node-cron";
 import { SCHEDULER_CONSTANTS } from "@/lib/constants";
 import db from "@/lib/db";
-import { runAutomation } from "@/lib/scraper";
+import { runAutomation, parseTelegramChannels } from "@/lib/scraper";
 
 let scheduledTask: ScheduledTask | null = null;
 
@@ -43,13 +43,17 @@ async function runDueAutomations() {
 
       try {
         console.log(`[Scheduler] Running automation: ${automation.name}`);
+
+        const telegramChannels = parseTelegramChannels(automation.telegramChannels);
+
         const result = await runAutomation({
           id: automation.id,
           userId: automation.userId,
           name: automation.name,
-          jobBoard: automation.jobBoard as "jsearch",
+          jobBoard: automation.jobBoard as "jsearch" | "telegram",
           keywords: automation.keywords,
           location: automation.location,
+          telegramChannels,
           resumeId: automation.resumeId,
           matchThreshold: automation.matchThreshold,
           scheduleHour: automation.scheduleHour,

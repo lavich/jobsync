@@ -67,6 +67,285 @@ const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
+type TelegramStep = "idle" | "phone" | "code" | "connecting";
+
+function TelegramSection({
+  existingKey,
+  onRefresh,
+}: {
+  existingKey: ApiKeyClientResponse | undefined;
+  onRefresh: () => Promise<void>;
+}) {
+  const [step, setStep] = useState<TelegramStep>("idle");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleStartAuth = async () => {
+    if (!phoneNumber.trim()) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/settings/telegram/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phoneNumber.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStep("code");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to send code",
+          description: data.error || "Could not send verification code",
+        });
+      }
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!code.trim()) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/settings/telegram/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code.trim(),
+          password: password || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          variant: "success",
+          title: "Telegram connected",
+          description: "Your Telegram account has been connected successfully.",
+        });
+        setStep("idle");
+        setPhoneNumber("");
+        setCode("");
+        setPassword("");
+        setRequires2FA(false);
+        await onRefresh();
+      } else if (data.requires2FA) {
+        setRequires2FA(true);
+        toast({
+          title: "2FA required",
+          description: "Please enter your Telegram 2FA password",
+        });
+      } else if (data.sessionExpired) {
+        handleCancel();
+        toast({
+          variant: "destructive",
+          title: "Session expired",
+          description: "Please enter your phone number again to restart.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Verification failed",
+          description: data.error || "Invalid code",
+        });
+      }
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteApiKey("telegram_session");
+      if (result.success) {
+        toast({
+          variant: "success",
+          title: "Telegram disconnected",
+          description: "Your Telegram session has been removed.",
+        });
+        await onRefresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.message || "Failed to disconnect",
+        });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setStep("idle");
+    setPhoneNumber("");
+    setCode("");
+    setPassword("");
+    setRequires2FA(false);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Telegram</CardTitle>
+            <CardDescription className="text-sm">
+              Connect your Telegram account to read job posts from channels
+            </CardDescription>
+          </div>
+          {existingKey ? (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-900">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Connected
+            </Badge>
+          ) : (
+            <Badge variant="secondary">Not connected</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {existingKey ? (
+          <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3 mr-1" />
+                  )}
+                  Disconnect
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disconnect Telegram</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove your Telegram session. Telegram automations
+                    will stop working until you reconnect.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDisconnect}>
+                    Disconnect
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : step === "idle" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setStep("phone")}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Connect Telegram
+          </Button>
+        ) : step === "phone" ? (
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="tg-phone">Phone Number</Label>
+              <Input
+                id="tg-phone"
+                type="tel"
+                placeholder="+1234567890"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="mt-1"
+                autoComplete="tel"
+                inputMode="tel"
+                name="phone"
+                onKeyDown={(e) => e.key === "Enter" && handleStartAuth()}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleStartAuth}
+                disabled={!phoneNumber.trim() || isLoading}
+              >
+                {isLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                Send Code
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="tg-code">Verification Code</Label>
+              <Input
+                id="tg-code"
+                type="text"
+                placeholder="12345"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="mt-1"
+                maxLength={10}
+              />
+            </div>
+            {requires2FA && (
+              <div>
+                <Label htmlFor="tg-password">2FA Password</Label>
+                <Input
+                  id="tg-password"
+                  type="password"
+                  placeholder="Your 2FA password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleVerify}
+                disabled={!code.trim() || isLoading}
+              >
+                {isLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                Verify
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ApiKeySettings() {
   const [keys, setKeys] = useState<ApiKeyClientResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -388,6 +667,11 @@ function ApiKeySettings() {
             </Card>
           );
         })}
+
+        <TelegramSection
+          existingKey={getKeyForProvider("telegram_session")}
+          onRefresh={fetchKeys}
+        />
       </div>
     </div>
   );

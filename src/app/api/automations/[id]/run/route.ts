@@ -3,7 +3,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import db from "@/lib/db";
-import { runAutomation, type RunnerResult } from "@/lib/scraper";
+import { runAutomation, parseTelegramChannels, type RunnerResult } from "@/lib/scraper";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const MAX_RUNS_PER_HOUR = 5;
@@ -68,13 +68,16 @@ export async function POST(
       );
     }
 
+    const telegramChannels = parseTelegramChannels(automation.telegramChannels);
+
     const result: RunnerResult = await runAutomation({
       id: automation.id,
       userId: automation.userId,
       name: automation.name,
-      jobBoard: automation.jobBoard as "jsearch",
+      jobBoard: automation.jobBoard as "jsearch" | "telegram",
       keywords: automation.keywords,
       location: automation.location,
+      telegramChannels,
       resumeId: automation.resumeId,
       matchThreshold: automation.matchThreshold,
       scheduleHour: automation.scheduleHour,

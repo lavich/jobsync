@@ -144,8 +144,12 @@ export async function createAutomation(
         userId: user.id,
         name: validated.name,
         jobBoard: validated.jobBoard,
-        keywords: validated.keywords,
-        location: validated.location,
+        keywords: validated.keywords ?? "",
+        location: validated.location ?? "",
+        telegramChannels:
+          validated.telegramChannels && validated.telegramChannels.length > 0
+            ? JSON.stringify(validated.telegramChannels)
+            : null,
         resumeId: validated.resumeId,
         matchThreshold: validated.matchThreshold,
         scheduleHour: validated.scheduleHour,
@@ -204,7 +208,13 @@ export async function updateAutomation(
       }
     }
 
-    const updateData: Record<string, unknown> = { ...validated };
+    const { telegramChannels, ...rest } = validated;
+    const updateData: Record<string, unknown> = { ...rest };
+
+    if (telegramChannels !== undefined) {
+      updateData.telegramChannels =
+        telegramChannels.length > 0 ? JSON.stringify(telegramChannels) : null;
+    }
 
     if (validated.scheduleHour !== undefined) {
       updateData.nextRunAt = calculateNextRunAt(validated.scheduleHour);

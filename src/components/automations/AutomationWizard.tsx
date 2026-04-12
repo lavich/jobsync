@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useEffect, ChangeEvent, type ComponentType, type ReactNode } from "react";
+import { useForm, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -34,7 +34,7 @@ import {
 import { CreateAutomationSchema, type CreateAutomationInput } from "@/models/automation.schema";
 import { createAutomation, updateAutomation } from "@/actions/automation.actions";
 import { toast } from "@/components/ui/use-toast";
-import type { AutomationWithResume } from "@/models/automation.model";
+import type { AutomationWithResume, JobBoard } from "@/models/automation.model";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 interface Resume {
@@ -87,6 +87,164 @@ function parseTelegramChannels(val: string[] | string | null | undefined): strin
   if (Array.isArray(val)) return val;
   try { return JSON.parse(val) as string[]; } catch { return []; }
 }
+
+type FieldsProps = { control: Control<CreateAutomationInput> };
+
+function JSearchFields({ control }: FieldsProps) {
+  return (
+    <>
+      <FormField
+        control={control}
+        name="keywords"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Search Keywords</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., Full Stack Developer" {...field} />
+            </FormControl>
+            <FormDescription>
+              Job titles, skills, or keywords to search for
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="location"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Location</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., Calgary, AB" {...field} />
+            </FormControl>
+            <FormDescription>
+              City, state/province, or region to search in
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
+  );
+}
+
+function TelegramFields({ control }: FieldsProps) {
+  return (
+    <>
+      <FormField
+        control={control}
+        name="location"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Location</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., United States" {...field} />
+            </FormControl>
+            <FormDescription>
+              Used to match your location preferences
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="keywords"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Keywords (optional)</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="e.g., React, TypeScript, remote"
+                {...field}
+              />
+            </FormControl>
+            <FormDescription>
+              Hint for the AI when filtering posts (optional)
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
+  );
+}
+
+const STEP1_COMPONENTS: Record<JobBoard, ComponentType<FieldsProps>> = {
+  jsearch: JSearchFields,
+  telegram: TelegramFields,
+};
+
+const STEP0_CAN_PROCEED: Record<JobBoard, (v: CreateAutomationInput) => boolean> = {
+  jsearch: (v) => !!(v.name?.trim()),
+  telegram: (v) =>
+    !!(v.name?.trim()) &&
+    Array.isArray(v.telegramChannels) &&
+    v.telegramChannels.length > 0,
+};
+
+const STEP0_EXTRA_FIELDS: Partial<Record<JobBoard, (control: Control<CreateAutomationInput>) => ReactNode>> = {
+  telegram: (control) => (
+    <FormField
+      control={control}
+      name="telegramChannels"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Telegram Channels</FormLabel>
+          <FormControl>
+            <ChannelsTextarea value={field.value ?? []} onChange={field.onChange} />
+          </FormControl>
+          <FormDescription>
+            One channel per line (e.g. @jobschannel). You must be subscribed to each channel.
+          </FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  ),
+};
+
+const STEP1_CAN_PROCEED: Record<JobBoard, (v: CreateAutomationInput) => boolean> = {
+  jsearch: (v) => !!(v.keywords?.trim()) && !!(v.location?.trim()),
+  telegram: (v) => !!(v.location?.trim()),
+};
+
+const BOARD_NAMES: Record<JobBoard, string> = {
+  jsearch: "JSearch (Google Jobs)",
+  telegram: "Telegram Channels",
+};
+
+const BOARD_REVIEW_ROWS: Record<JobBoard, (v: CreateAutomationInput) => ReactNode> = {
+  jsearch: (v) => (
+    <>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Keywords</span>
+        <span className="font-medium">{v.keywords || "-"}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Location</span>
+        <span className="font-medium">{v.location || "-"}</span>
+      </div>
+    </>
+  ),
+  telegram: (v) => (
+    <>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Channels</span>
+        <span className="font-medium text-right max-w-[220px] break-words">
+          {(v.telegramChannels ?? []).join(", ") || "-"}
+        </span>
+      </div>
+      {v.keywords && (
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Keywords hint</span>
+          <span className="font-medium">{v.keywords}</span>
+        </div>
+      )}
+    </>
+  ),
+};
 
 const STEPS = [
   { id: "basics", title: "Basics", description: "Name your automation" },
@@ -144,7 +302,6 @@ export function AutomationWizard({
   }, [open, editAutomation, form]);
 
   const formValues = form.watch();
-  const isTelegram = formValues.jobBoard === "telegram";
 
   const onSubmit = async (data: CreateAutomationInput) => {
     setIsSubmitting(true);
@@ -185,19 +342,9 @@ export function AutomationWizard({
   const canGoNext = () => {
     switch (step) {
       case 0:
-        return (formValues.name?.trim().length ?? 0) > 0;
+        return STEP0_CAN_PROCEED[formValues.jobBoard](formValues);
       case 1:
-        if (isTelegram) {
-          return (
-            Array.isArray(formValues.telegramChannels) &&
-            formValues.telegramChannels.length > 0 &&
-            (formValues.location?.trim().length ?? 0) > 0
-          );
-        }
-        return (
-          (formValues.keywords?.trim().length ?? 0) > 0 &&
-          (formValues.location?.trim().length ?? 0) > 0
-        );
+        return STEP1_CAN_PROCEED[formValues.jobBoard](formValues);
       case 2:
         return (formValues.resumeId?.length ?? 0) > 0;
       case 3:
@@ -229,6 +376,7 @@ export function AutomationWizard({
   const selectedResume = resumes.find((r) => r.id === formValues.resumeId);
 
   const renderStepContent = () => {
+    const Step1Fields = STEP1_COMPONENTS[formValues.jobBoard];
     return (
       <>
         {/* Step 0: Basics */}
@@ -273,104 +421,12 @@ export function AutomationWizard({
               </FormItem>
             )}
           />
+          {STEP0_EXTRA_FIELDS[formValues.jobBoard]?.(form.control)}
         </div>
 
         {/* Step 1: Search */}
         <div className={step === 1 ? "space-y-4" : "hidden"}>
-          {isTelegram ? (
-            <>
-              <FormField
-                control={form.control}
-                name="telegramChannels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telegram Channels</FormLabel>
-                    <FormControl>
-                      <ChannelsTextarea
-                        value={field.value ?? []}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      One channel per line (e.g. @jobschannel). You must be
-                      subscribed to each channel.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., United States" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Used to match your location preferences
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="keywords"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Keywords (optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., React, TypeScript, remote"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Hint for the AI when filtering posts (optional)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
-          ) : (
-            <>
-              <FormField
-                control={form.control}
-                name="keywords"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Search Keywords</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Full Stack Developer" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Job titles, skills, or keywords to search for
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Calgary, AB" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      City, state/province, or region to search in
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </>
-          )}
+          <Step1Fields control={form.control} />
         </div>
 
         {/* Step 2: Resume */}
@@ -481,37 +537,9 @@ export function AutomationWizard({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Job Board</span>
-              <span className="font-medium capitalize">
-                {formValues.jobBoard === "telegram"
-                  ? "Telegram Channels"
-                  : "JSearch (Google Jobs)"}
-              </span>
+              <span className="font-medium">{BOARD_NAMES[formValues.jobBoard]}</span>
             </div>
-            {isTelegram ? (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Channels</span>
-                <span className="font-medium text-right max-w-[220px] break-words">
-                  {(formValues.telegramChannels ?? []).join(", ") || "-"}
-                </span>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Keywords</span>
-                  <span className="font-medium">{formValues.keywords || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Location</span>
-                  <span className="font-medium">{formValues.location || "-"}</span>
-                </div>
-              </>
-            )}
-            {formValues.keywords && isTelegram && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Keywords hint</span>
-                <span className="font-medium">{formValues.keywords}</span>
-              </div>
-            )}
+            {BOARD_REVIEW_ROWS[formValues.jobBoard](formValues)}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Resume</span>
               <span className="font-medium">{selectedResume?.title || "Not selected"}</span>

@@ -6,7 +6,7 @@ import type {
   ScrapedJobData,
   JobBoard,
 } from "@/models/automation.model";
-import type { ScraperError, JobDetails } from "./types";
+import type { ScraperError, JobDetails, ScraperResult } from "./types";
 import { searchJSearchJobs } from "./jsearch";
 import { searchTelegramChannels } from "./telegram";
 import { mapScrapedJobToJobRecord } from "./mapper";
@@ -86,6 +86,47 @@ function getErrorMessage(error: ScraperError): string {
       return error.message;
   }
 }
+
+type SearchFn = (automation: Automation) => Promise<ScraperResult<JobDetails[]>>;
+
+interface BoardProvider {
+  name: string;
+  logMessage: (automation: Automation) => string;
+  search: SearchFn;
+}
+
+const boardProviders: Record<JobBoard, BoardProvider> = {
+  jsearch: {
+    name: "JSearch API",
+    logMessage: (a) => `Searching for jobs: "${a.keywords}" in ${a.location}`,
+    search: async (automation) => {
+      const rapidApiKey = await resolveApiKey(automation.userId, "rapidapi");
+      return searchJSearchJobs(automation.keywords, automation.location, rapidApiKey);
+    },
+  },
+  telegram: {
+    name: "Telegram",
+    logMessage: (a) =>
+      `Searching Telegram channels: ${a.telegramChannels?.join(", ") ?? "none"}`,
+    search: async (automation) => {
+      const telegramSession = await resolveApiKey(automation.userId, "telegram_session");
+      if (!telegramSession) {
+        return {
+          success: false as const,
+          error: {
+            type: "blocked" as const,
+            reason: "No Telegram session found. Please connect your account in Settings.",
+          },
+        };
+      }
+      return searchTelegramChannels(
+        automation.telegramChannels ?? [],
+        telegramSession,
+        automation.lastRunAt,
+      );
+    },
+  },
+};
 
 export interface RunnerResult {
   runId: string;
@@ -203,58 +244,9 @@ export async function runAutomation(
       `Resume loaded: ${resume.title}`,
     );
 
-    let searchResult: Awaited<ReturnType<typeof searchJSearchJobs>>;
-
-    if (automation.jobBoard === "telegram") {
-      automationLogger.log(
-        automation.id,
-        "info",
-        `Searching Telegram channels: ${automation.telegramChannels?.join(", ") ?? "none"}`,
-      );
-
-      const telegramSession = await resolveApiKey(
-        automation.userId,
-        "telegram_session",
-      );
-
-      if (!telegramSession) {
-        automationLogger.log(
-          automation.id,
-          "error",
-          "No Telegram session found. Please connect your Telegram account in Settings.",
-        );
-        automationLogger.endRun(automation.id);
-        return await finalizeRun(run.id, {
-          status: "blocked",
-          blockedReason: "telegram_session_missing",
-          jobsSearched: 0,
-          jobsDeduplicated: 0,
-          jobsProcessed: 0,
-          jobsMatched: 0,
-          jobsSaved: 0,
-        });
-      }
-
-      const channels = automation.telegramChannels ?? [];
-      searchResult = await searchTelegramChannels(
-        channels,
-        telegramSession,
-        automation.lastRunAt,
-      );
-    } else {
-      automationLogger.log(
-        automation.id,
-        "info",
-        `Searching for jobs: "${automation.keywords}" in ${automation.location}`,
-      );
-
-      const rapidApiKey = await resolveApiKey(automation.userId, "rapidapi");
-      searchResult = await searchJSearchJobs(
-        automation.keywords,
-        automation.location,
-        rapidApiKey,
-      );
-    }
+    const provider = boardProviders[automation.jobBoard];
+    automationLogger.log(automation.id, "info", provider.logMessage(automation));
+    const searchResult = await provider.search(automation);
 
     if (!searchResult.success) {
       automationLogger.log(
@@ -285,12 +277,10 @@ export async function runAutomation(
 
     const jobsSearched = searchResult.data.length;
 
-    const sourceLabel =
-      automation.jobBoard === "telegram" ? "Telegram" : "JSearch API";
     automationLogger.log(
       automation.id,
       "success",
-      `Found ${jobsSearched} posts from ${sourceLabel}`,
+      `Found ${jobsSearched} posts from ${provider.name}`,
       { jobsSearched },
     );
 

@@ -21,6 +21,9 @@ jobs:
             -i /tmp/vps_key \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "gunzip | docker load"
+          scp -o StrictHostKeyChecking=no -i /tmp/vps_key \
+            docker-compose.yml \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/jobsync/docker-compose.yml
           rm -f /tmp/vps_key
 
       - name: Start container on VPS

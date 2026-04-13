@@ -6,6 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertCircle,
   CheckCircle2,
   Info,
@@ -133,43 +140,36 @@ export function LogsTab({ automationId, runKey }: LogsTabProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant={filter === "all" ? "default" : "outline"}
-                onClick={() => setFilter("all")}
-              >
-                All
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "info" ? "default" : "outline"}
-                onClick={() => setFilter("info")}
-              >
-                Info
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "success" ? "default" : "outline"}
-                onClick={() => setFilter("success")}
-              >
-                Success
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "warning" ? "default" : "outline"}
-                onClick={() => setFilter("warning")}
-              >
-                Warning
-              </Button>
-              <Button
-                size="sm"
-                variant={filter === "error" ? "default" : "outline"}
-                onClick={() => setFilter("error")}
-              >
-                Error
-              </Button>
+            {/* Desktop filter buttons */}
+            <div className="hidden sm:flex gap-1">
+              {(["all", "info", "success", "warning", "error"] as const).map((level) => (
+                <Button
+                  key={level}
+                  size="sm"
+                  variant={filter === level ? "default" : "outline"}
+                  onClick={() => setFilter(level)}
+                  className="capitalize"
+                >
+                  {level}
+                </Button>
+              ))}
             </div>
+            {/* Mobile filter select */}
+            <Select
+              value={filter}
+              onValueChange={(v) => setFilter(v as LogLevel | "all")}
+            >
+              <SelectTrigger className="sm:hidden w-28 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["all", "info", "success", "warning", "error"] as const).map((level) => (
+                  <SelectItem key={level} value={level} className="capitalize">
+                    {level}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               size="sm"
               variant="outline"

@@ -3,6 +3,15 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
 
+function toHtml(content: string): string {
+  if (!content) return "";
+  if (/<[a-z][\s\S]*>/i.test(content)) return content;
+  return content
+    .split(/\n\n+/)
+    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 export const TipTapContentViewer = ({ content }: { content: string }) => {
   const editor = useEditor({
     extensions: [
@@ -28,7 +37,7 @@ export const TipTapContentViewer = ({ content }: { content: string }) => {
     editable: false,
   });
   useEffect(() => {
-    editor?.commands.setContent(content);
+    editor?.commands.setContent(toHtml(content));
   }, [content, editor]);
   return <EditorContent editor={editor} />;
 };

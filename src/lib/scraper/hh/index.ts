@@ -150,23 +150,24 @@ export async function searchHHJobs(
 
       let description: string;
       if (detail?.description) {
-        description = stripHtml(detail.description);
+        description = detail.description;
         if (detail.key_skills.length > 0) {
           description +=
-            "\n\nKey skills: " +
-            detail.key_skills.map((s) => s.name).join(", ");
+            `<p><strong>Key skills:</strong> ${detail.key_skills.map((s) => s.name).join(", ")}</p>`;
         }
       } else {
         const parts: string[] = [];
         if (vacancy.snippet.requirement) {
-          parts.push("Requirements: " + stripHtml(vacancy.snippet.requirement));
+          parts.push(
+            `<p><strong>Requirements:</strong></p><p>${stripHtml(vacancy.snippet.requirement).replace(/\n/g, "<br>")}</p>`,
+          );
         }
         if (vacancy.snippet.responsibility) {
           parts.push(
-            "Responsibilities: " + stripHtml(vacancy.snippet.responsibility),
+            `<p><strong>Responsibilities:</strong></p><p>${stripHtml(vacancy.snippet.responsibility).replace(/\n/g, "<br>")}</p>`,
           );
         }
-        description = parts.join("\n\n") || "No description available";
+        description = parts.join("") || "<p>No description available</p>";
       }
 
       return {

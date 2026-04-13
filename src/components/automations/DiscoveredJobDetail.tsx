@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TipTapContentViewer } from "@/components/TipTapContentViewer";
 import {
   Dialog,
   DialogContent,
@@ -126,9 +127,9 @@ export function DiscoveredJobDetail({
 
             <div>
               <h4 className="font-medium mb-2">Description</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {job.description}
-              </p>
+              <div className="text-sm text-muted-foreground prose prose-sm max-w-none">
+                <TipTapContentViewer content={job.description || ""} />
+              </div>
             </div>
 
             <MatchDetails matchData={matchData} discoveredAt={job.discoveredAt} />

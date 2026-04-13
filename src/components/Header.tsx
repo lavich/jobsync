@@ -13,6 +13,7 @@ import { SIDEBAR_LINKS } from "@/lib/constants";
 import { signOut } from "@/auth";
 import { getCurrentUser } from "@/utils/user.utils";
 import { ProfileDropdown } from "./ProfileDropdown";
+import { Breadcrumbs } from "./Breadcrumbs";
 
 async function Header() {
   // const session = await auth();
@@ -58,7 +59,7 @@ async function Header() {
           </nav>
         </SheetContent>
       </Sheet>
-      <h1 className="font-semibold">JobSync - Job Search Assistant</h1>
+      <Breadcrumbs />
       <div className="relative ml-auto flex-1 md:grow-0">
         {/* <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input

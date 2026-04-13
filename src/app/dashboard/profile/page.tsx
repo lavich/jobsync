@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import ProfileContainer from "@/components/profile/ProfileContainer";
 import React from "react";
+
+export const metadata: Metadata = { title: "Profile" };
 
 function Profile() {
   return (

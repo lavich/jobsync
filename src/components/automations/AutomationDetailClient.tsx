@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { format } from "date-fns";
 import {
   Card,
@@ -13,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/use-toast";
 import {
-  ArrowLeft,
   Pause,
   Play,
   RefreshCw,
@@ -129,11 +127,6 @@ export function AutomationDetailClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/dashboard/automations">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{automation.name}</h1>
           <p className="text-muted-foreground">

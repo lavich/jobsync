@@ -12,8 +12,7 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Button } from "../ui/button";
-import { ArrowLeft, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { AiJobMatchSection } from "../profile/AiJobMatchSection";
 import { NotesSection } from "./NotesSection";
 import { useState, useMemo, useCallback } from "react";
@@ -25,9 +24,6 @@ function JobDetails({ job }: { job: JobResponse }) {
   const [aiSectionOpen, setAiSectionOpen] = useState(false);
   const [currentMatchScore, setCurrentMatchScore] = useState(job.matchScore);
   const [currentMatchData, setCurrentMatchData] = useState(job.matchData);
-  const router = useRouter();
-  const goBack = () => router.back();
-
   const parsedMatchData = useMemo(() => {
     if (!currentMatchData) return null;
     try {
@@ -61,10 +57,7 @@ function JobDetails({ job }: { job: JobResponse }) {
   };
   return (
     <>
-      <div className="flex justify-between">
-        <Button title="Go Back" size="sm" variant="outline" onClick={goBack}>
-          <ArrowLeft />
-        </Button>
+      <div className="flex justify-end">
         <Button
           size="sm"
           variant="outline"

@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import QuestionsPageClient from "./QuestionsPageClient";
+
+export const metadata: Metadata = { title: "Question Bank" };
 import { getTagsWithQuestionCounts } from "@/actions/question.actions";
 import { getAllTags } from "@/actions/tag.actions";
 import React from "react";

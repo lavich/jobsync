@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import AdminTabsContainer from "@/components/admin/AdminTabsContainer";
+
+export const metadata: Metadata = { title: "Administration" };
 
 async function AdminPage() {
   return (

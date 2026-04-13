@@ -11,16 +11,7 @@ import { AutomationList } from "./AutomationList";
 import { AutomationWizard } from "./AutomationWizard";
 import Loading from "@/components/Loading";
 
-interface Resume {
-  id: string;
-  title: string;
-}
-
-interface AutomationContainerProps {
-  resumes: Resume[];
-}
-
-export function AutomationContainer({ resumes }: AutomationContainerProps) {
+export function AutomationContainer() {
   const [automations, setAutomations] = useState<AutomationWithResume[]>([]);
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -75,7 +66,6 @@ export function AutomationContainer({ resumes }: AutomationContainerProps) {
             <Button
               variant="outline"
               onClick={() => setWizardOpen(true)}
-              disabled={resumes.length === 0}
             >
               <Plus className="h-4 w-4 mr-2" />
               Create Automation
@@ -83,14 +73,7 @@ export function AutomationContainer({ resumes }: AutomationContainerProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {resumes.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>You need to create a resume before setting up automations.</p>
-              <p className="text-sm mt-2">
-                Go to your Profile to create a resume first.
-              </p>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <Loading />
           ) : (
             <AutomationList
@@ -105,7 +88,6 @@ export function AutomationContainer({ resumes }: AutomationContainerProps) {
       <AutomationWizard
         open={wizardOpen}
         onOpenChange={handleWizardClose}
-        resumes={resumes}
         onSuccess={handleSuccess}
         editAutomation={editAutomation}
       />

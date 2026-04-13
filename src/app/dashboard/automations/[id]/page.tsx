@@ -35,7 +35,6 @@ import {
   resumeAutomation,
   getDiscoveredJobById,
 } from "@/actions/automation.actions";
-import { getResumeList } from "@/actions/profile.actions";
 import { AutomationWizard } from "@/components/automations/AutomationWizard";
 import type {
   AutomationWithResume,
@@ -68,21 +67,14 @@ export default function AutomationDetailPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [runKey, setRunKey] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [resumes, setResumes] = useState<{ id: string; title: string }[]>([]);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [automationResult, runsResult, jobsResult, resumesResult] = await Promise.all([
+      const [automationResult, runsResult, jobsResult] = await Promise.all([
         getAutomationById(automationId),
         getAutomationRuns(automationId),
         getDiscoveredJobs({ automationId }),
-        getResumeList(1, 100),
       ]);
-
-      if (resumesResult?.data) {
-        setResumes(resumesResult.data.map((r: { id: string; title: string }) => ({ id: r.id, title: r.title })));
-      }
 
       if (automationResult.success && automationResult.data) {
         setAutomation(automationResult.data);
@@ -376,7 +368,6 @@ export default function AutomationDetailPage() {
       <AutomationWizard
         open={wizardOpen}
         onOpenChange={(open) => setWizardOpen(open)}
-        resumes={resumes}
         onSuccess={loadData}
         editAutomation={automation}
       />

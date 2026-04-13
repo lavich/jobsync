@@ -3,31 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "@/components/ui/use-toast";
-import {
-  Pause,
-  Play,
-  RefreshCw,
-  Loader2,
-  Clock,
-  FileText,
-  AlertTriangle,
-  PlayCircle,
-  Pencil,
-} from "lucide-react";
-import {
-  pauseAutomation,
-  resumeAutomation,
-  getDiscoveredJobById,
-} from "@/actions/automation.actions";
+import { Clock, FileText, AlertTriangle } from "lucide-react";
+import { getDiscoveredJobById } from "@/actions/automation.actions";
 import { AutomationWizard } from "@/components/automations/AutomationWizard";
+import { AutomationActions } from "@/components/automations/AutomationActions";
 import type {
   AutomationWithResume,
   AutomationRun,
@@ -45,72 +27,16 @@ interface AutomationDetailClientProps {
   jobs: DiscoveredJob[];
 }
 
-export function AutomationDetailClient({
-  automation,
-  runs,
-  jobs,
-}: AutomationDetailClientProps) {
+export function AutomationDetailClient({ automation, runs, jobs }: AutomationDetailClientProps) {
   const router = useRouter();
-  const [actionLoading, setActionLoading] = useState(false);
-  const [runNowLoading, setRunNowLoading] = useState(false);
   const [selectedJob, setSelectedJob] = useState<DiscoveredJob | null>(null);
-  const [selectedJobMatchData, setSelectedJobMatchData] =
-    useState<JobMatchResponse | null>(null);
+  const [selectedJobMatchData, setSelectedJobMatchData] = useState<JobMatchResponse | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [runKey, setRunKey] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const resumeMissing = !automation.resume;
   const newJobsCount = jobs.filter((j) => j.discoveryStatus === "new").length;
-
-  const handlePauseResume = async () => {
-    setActionLoading(true);
-    const result =
-      automation.status === "active"
-        ? await pauseAutomation(automation.id)
-        : await resumeAutomation(automation.id);
-    setActionLoading(false);
-
-    if (result.success) {
-      toast({
-        title:
-          automation.status === "active"
-            ? "Automation paused"
-            : "Automation resumed",
-      });
-      router.refresh();
-    } else {
-      toast({ title: "Error", description: result.message, variant: "destructive" });
-    }
-  };
-
-  const handleRunNow = async () => {
-    setRunNowLoading(true);
-    setRunKey((prev) => prev + 1);
-    try {
-      const response = await fetch(`/api/automations/${automation.id}/run`, {
-        method: "POST",
-      });
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Automation run started",
-          description: `Saved ${data.run.jobsSaved} new jobs`,
-        });
-        router.refresh();
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to run automation",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({ title: "Error", description: "Failed to run automation", variant: "destructive" });
-    }
-    setRunNowLoading(false);
-  };
 
   const handleViewJobDetails = async (job: DiscoveredJob) => {
     const result = await getDiscoveredJobById(job.id);
@@ -124,6 +50,11 @@ export function AutomationDetailClient({
     setDetailOpen(true);
   };
 
+  const handleRefresh = () => {
+    setRunKey((prev) => prev + 1);
+    router.refresh();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -133,41 +64,14 @@ export function AutomationDetailClient({
             {automation.keywords} in {automation.location}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => router.refresh()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => setWizardOpen(true)}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handlePauseResume}
-            disabled={actionLoading || resumeMissing}
-          >
-            {actionLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : automation.status === "active" ? (
-              <Pause className="h-4 w-4 mr-2" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            {automation.status === "active" ? "Pause" : "Resume"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleRunNow}
-            disabled={runNowLoading || resumeMissing || automation.status === "paused"}
-          >
-            {runNowLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <PlayCircle className="h-4 w-4 mr-2" />
-            )}
-            Run Now
-          </Button>
-        </div>
+        <AutomationActions
+          automation={automation}
+          onEdit={() => setWizardOpen(true)}
+          onRefresh={handleRefresh}
+          onAfterDelete={() => router.push("/dashboard/automations")}
+          showDelete
+          variant="responsive"
+        />
       </div>
 
       <Card>
@@ -261,7 +165,7 @@ export function AutomationDetailClient({
         <TabsContent value="jobs" className="mt-4">
           <DiscoveredJobsList
             jobs={jobs}
-            onRefresh={() => router.refresh()}
+            onRefresh={handleRefresh}
             onViewDetails={handleViewJobDetails}
           />
         </TabsContent>
@@ -275,13 +179,13 @@ export function AutomationDetailClient({
         matchData={selectedJobMatchData}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onRefresh={() => router.refresh()}
+        onRefresh={handleRefresh}
       />
 
       <AutomationWizard
         open={wizardOpen}
         onOpenChange={(open) => setWizardOpen(open)}
-        onSuccess={() => router.refresh()}
+        onSuccess={handleRefresh}
         editAutomation={automation}
       />
     </div>

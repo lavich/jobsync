@@ -15,10 +15,13 @@ jobs:
 
       - name: Transfer image to VPS
         run: |
+          echo "${{ secrets.VPS_SSH_KEY }}" > /tmp/vps_key
+          chmod 600 /tmp/vps_key
           docker save jobsync:local | gzip | ssh -o StrictHostKeyChecking=no \
-            -i <(echo "${{ secrets.VPS_SSH_KEY }}") \
+            -i /tmp/vps_key \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
             "gunzip | docker load"
+          rm -f /tmp/vps_key
 
       - name: Start container on VPS
         uses: appleboy/ssh-action@v1

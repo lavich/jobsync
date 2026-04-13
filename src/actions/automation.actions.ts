@@ -147,7 +147,7 @@ export async function createAutomation(
         keywords: validated.keywords ?? "",
         location: validated.location ?? "",
         telegramChannels:
-          validated.telegramChannels && validated.telegramChannels.length > 0
+          'telegramChannels' in validated && validated.telegramChannels && validated.telegramChannels.length > 0
             ? JSON.stringify(validated.telegramChannels)
             : null,
         resumeId: validated.resumeId,

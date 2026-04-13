@@ -67,7 +67,6 @@ export function BasicsStep({ control, formValues, onNext }: WizardStepProps) {
             </FormItem>
           )}
         />
-        {BOARD_CONFIGS[formValues.jobBoard].step0ExtraFields?.(control)}
       </div>
       <DialogFooter className="gap-2 mt-6">
         <Button type="button" onClick={onNext} disabled={!canProceed}>

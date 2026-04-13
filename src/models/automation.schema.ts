@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const JobBoardSchema = z.enum(["jsearch", "telegram"]);
+export const JobBoardSchema = z.enum(["jsearch", "telegram", "hh"]);
 
 export const AutomationStatusSchema = z.enum(["active", "paused"]);
 
@@ -26,19 +26,25 @@ const JSearchAutomationSchema = BaseAutomationSchema.extend({
   jobBoard: z.literal("jsearch"),
   keywords: z.string().min(1, "Keywords are required").max(200),
   location: z.string().min(1, "Location is required").max(100),
-  telegramChannels: z.array(z.string()).optional(),
 });
 
 const TelegramAutomationSchema = BaseAutomationSchema.extend({
   jobBoard: z.literal("telegram"),
   telegramChannels: z.array(z.string()).min(1, "At least one channel is required"),
-  keywords: z.string().max(200).optional(),
-  location: z.string().max(100),
+  keywords: z.string().min(1, "Keywords are required").max(200),
+  location: z.string().min(1, "Location is required").max(100),
+});
+
+const HHAutomationSchema = BaseAutomationSchema.extend({
+  jobBoard: z.literal("hh"),
+  keywords: z.string().min(1, "Keywords are required").max(200),
+  location: z.string().min(1, "Location is required").max(100),
 });
 
 export const CreateAutomationSchema = z.discriminatedUnion("jobBoard", [
   JSearchAutomationSchema,
   TelegramAutomationSchema,
+  HHAutomationSchema,
 ]);
 
 export const UpdateAutomationSchema = z.object({

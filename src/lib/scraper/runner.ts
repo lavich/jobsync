@@ -9,6 +9,7 @@ import type {
 import type { ScraperError, JobDetails, ScraperResult } from "./types";
 import { searchJSearchJobs } from "./jsearch";
 import { searchTelegramChannels } from "./telegram";
+import { searchHHJobs } from "./hh";
 import { mapScrapedJobToJobRecord } from "./mapper";
 import { normalizeJobUrl } from "./utils";
 import { calculateNextRunAt } from "./schedule";
@@ -102,6 +103,13 @@ const boardProviders: Record<JobBoard, BoardProvider> = {
     search: async (automation) => {
       const rapidApiKey = await resolveApiKey(automation.userId, "rapidapi");
       return searchJSearchJobs(automation.keywords, automation.location, rapidApiKey);
+    },
+  },
+  hh: {
+    name: "HeadHunter (hh.ru)",
+    logMessage: (a) => `Searching hh.ru for: "${a.keywords}" in ${a.location}`,
+    search: async (automation) => {
+      return searchHHJobs(automation.keywords, automation.location);
     },
   },
   telegram: {

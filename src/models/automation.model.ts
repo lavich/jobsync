@@ -9,7 +9,7 @@ export type AutomationRunStatus =
   | "blocked"
   | "rate_limited";
 export type DiscoveryStatus = "new" | "accepted" | "dismissed";
-export type JobBoard = "jsearch" | "telegram";
+export type JobBoard = "jsearch" | "telegram" | "hh";
 
 export interface Automation {
   id: string;

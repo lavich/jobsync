@@ -9,6 +9,7 @@ import type {
 import type { ScraperError, JobDetails, ScraperResult } from "./types";
 import { searchJSearchJobs } from "./jsearch";
 import { searchTelegramChannels } from "./telegram";
+import { enrichTelegramPostWithAI } from "./telegram/parser";
 import { searchHHJobs } from "./hh";
 import { mapScrapedJobToJobRecord } from "./mapper";
 import { normalizeJobUrl } from "./utils";
@@ -127,11 +128,31 @@ const boardProviders: Record<JobBoard, BoardProvider> = {
           },
         };
       }
-      return searchTelegramChannels(
+
+      const rawResult = await searchTelegramChannels(
         automation.telegramChannels ?? [],
         telegramSession,
         automation.lastRunAt,
       );
+
+      if (!rawResult.success || rawResult.data.length === 0) {
+        return rawResult;
+      }
+
+      try {
+        const aiSettings = await getUserAiSettings(automation.userId);
+        const modelName = aiSettings.model || getDefaultModelForProvider(aiSettings.provider);
+        const model = await getModel(aiSettings.provider, modelName, automation.userId);
+
+        const enriched = await Promise.all(
+          rawResult.data.map((job) => enrichTelegramPostWithAI(job, model)),
+        );
+
+        return { success: true, data: enriched };
+      } catch {
+        // If AI enrichment fails, return raw results
+        return rawResult;
+      }
     },
   },
 };
@@ -568,7 +589,7 @@ ${job.description}
       temperature: 0.3,
     });
 
-    const matchData = result.experimental_output;
+    const matchData = result.output;
     if (!matchData) {
       return { success: false, score: 0, error: "No match data returned" };
     }

@@ -220,6 +220,9 @@ export async function updateAutomation(
       updateData.nextRunAt = calculateNextRunAt(validated.scheduleHour);
     }
 
+    // Reset lastRunAt so the next run doesn't skip jobs based on stale date
+    updateData.lastRunAt = null;
+
     const automation = await db.automation.update({
       where: { id },
       data: updateData,

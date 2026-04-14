@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { CreateAutomationInput } from "@/models/automation.schema";
 import type { JobBoard } from "@/models/automation.model";
-import { ChannelsTextarea } from "./ChannelsTextarea";
+import { ChannelsPicker } from "./ChannelsPicker";
 import type { FieldsProps } from "./types";
 
 export interface BoardConfig {
@@ -102,7 +102,7 @@ export const BOARD_CONFIGS: Record<JobBoard, BoardConfig> = {
             <FormItem>
               <FormLabel>Telegram Channels</FormLabel>
               <FormControl>
-                <ChannelsTextarea value={field.value ?? []} onChange={field.onChange} />
+                <ChannelsPicker value={field.value ?? []} onChange={field.onChange} />
               </FormControl>
               <FormDescription>
                 One channel per line (e.g. @jobschannel). You must be subscribed to each channel.

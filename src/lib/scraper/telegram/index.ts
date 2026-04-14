@@ -1,7 +1,40 @@
-import { TelegramClient, sessions } from "telegram";
+import { TelegramClient, Api, sessions } from "telegram";
 
 const { StringSession } = sessions;
 import type { JobDetails, ScraperResult } from "../types";
+
+export interface TelegramChannel {
+  username: string;
+  title: string;
+}
+
+export async function getUserChannels(
+  sessionString: string,
+): Promise<TelegramChannel[]> {
+  let client: TelegramClient | null = null;
+  try {
+    const { apiId, apiHash } = getApiCredentials();
+    const session = new StringSession(sessionString);
+    client = new TelegramClient(session, apiId, apiHash, { connectionRetries: 3 });
+    await client.connect();
+
+    const dialogs = await client.getDialogs({});
+    const channels: TelegramChannel[] = [];
+
+    for (const dialog of dialogs) {
+      const entity = dialog.entity;
+      if (entity instanceof Api.Channel && entity.broadcast && entity.username) {
+        channels.push({ username: `@${entity.username}`, title: dialog.title ?? entity.username });
+      }
+    }
+
+    return channels;
+  } finally {
+    if (client) {
+      try { await client.disconnect(); } catch { /* ignore */ }
+    }
+  }
+}
 
 function getApiCredentials(): { apiId: number; apiHash: string } {
   const apiId = parseInt(process.env.TELEGRAM_API_ID || "0", 10);

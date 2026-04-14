@@ -19,7 +19,7 @@ import { getResumeList } from "@/actions/profile.actions";
 import { toast } from "@/components/ui/use-toast";
 import type { AutomationWithResume } from "@/models/automation.model";
 import { STEPS } from "./constants";
-import { parseTelegramChannels } from "./ChannelsTextarea";
+import { parseTelegramChannels } from "./ChannelsPicker";
 import { BasicsStep } from "./steps/BasicsStep";
 import { SearchStep } from "./steps/SearchStep";
 import { ResumeStep } from "./steps/ResumeStep";

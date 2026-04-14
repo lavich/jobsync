@@ -18,3 +18,9 @@ export {
   JOB_MATCH_SYSTEM_PROMPT,
   buildJobMatchPrompt,
 } from "./job-match";
+
+// Resume Parse exports
+export {
+  RESUME_PARSE_SYSTEM_PROMPT,
+  buildResumeParsePrompt,
+} from "./resume-parse";

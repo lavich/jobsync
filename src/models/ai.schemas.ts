@@ -236,3 +236,42 @@ export type SkillsAnalysis = z.infer<typeof SkillsAnalysisSchema>;
 export type ExperienceAnalysis = z.infer<typeof ExperienceAnalysisSchema>;
 export type KeywordsAnalysis = z.infer<typeof KeywordsAnalysisSchema>;
 export type TailoringTip = z.infer<typeof TailoringTipSchema>;
+
+// RESUME PARSE SCHEMA
+// Used to extract structured resume data from raw PDF/DOCX text
+
+export const ResumeParseSchema = z.object({
+  contact: z.object({
+    firstName: z.string().describe("First name"),
+    lastName: z.string().describe("Last name"),
+    headline: z.string().optional().describe("Professional headline or current job title"),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    address: z.string().optional(),
+  }),
+  summary: z.string().optional().describe("Professional summary or objective paragraph"),
+  experiences: z.array(
+    z.object({
+      company: z.string().describe("Company or employer name"),
+      jobTitle: z.string().describe("Job title or position"),
+      location: z.string().optional().describe("City, country or Remote"),
+      startDate: z.string().optional().describe("Start date in MM/YYYY or YYYY format"),
+      endDate: z.string().optional().describe("End date in MM/YYYY or YYYY format, omit if current"),
+      currentJob: z.boolean().optional().describe("True if this is the current job"),
+      description: z.string().optional().describe("Responsibilities and achievements"),
+    }),
+  ),
+  educations: z.array(
+    z.object({
+      institution: z.string().describe("School, university, or institution name"),
+      degree: z.string().optional().describe("Degree type (Bachelor, Master, PhD, etc.)"),
+      fieldOfStudy: z.string().optional().describe("Major or field of study"),
+      location: z.string().optional(),
+      startDate: z.string().optional().describe("Start date in MM/YYYY or YYYY format"),
+      endDate: z.string().optional().describe("End date in MM/YYYY or YYYY format"),
+      description: z.string().optional(),
+    }),
+  ),
+});
+
+export type ResumeParseResponse = z.infer<typeof ResumeParseSchema>;

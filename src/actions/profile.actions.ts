@@ -7,6 +7,7 @@ import { AddExperienceFormSchema } from "@/models/addExperienceForm.schema";
 import { AddSummarySectionFormSchema } from "@/models/addSummaryForm.schema";
 import { CreateResumeFormSchema } from "@/models/createResumeForm.schema";
 import { ResumeSection, SectionType, Summary } from "@/models/profile.model";
+import { ResumeParseResponse } from "@/models/ai.schemas";
 import { getCurrentUser } from "@/utils/user.utils";
 import { APP_CONSTANTS } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
@@ -619,6 +620,179 @@ export const addEducation = async (
   } catch (error) {
     const msg = "Failed to create education.";
     return handleError(error, msg);
+  }
+};
+
+function parseDateString(dateStr: string | undefined): Date | undefined {
+  if (!dateStr) return undefined;
+  const parts = dateStr.split("/");
+  if (parts.length === 2) {
+    const month = parseInt(parts[0], 10) - 1;
+    const year = parseInt(parts[1], 10);
+    if (!isNaN(month) && !isNaN(year)) return new Date(year, month, 1);
+  }
+  const year = parseInt(dateStr, 10);
+  if (!isNaN(year)) return new Date(year, 0, 1);
+  return undefined;
+}
+
+export const applyParsedResume = async (
+  resumeId: string,
+  parsed: ResumeParseResponse,
+): Promise<{ success: boolean; filled: string[]; error?: string }> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const resume = await prisma.resume.findUnique({
+      where: { id: resumeId, profile: { userId: user.id } },
+      include: {
+        ContactInfo: true,
+        ResumeSections: {
+          include: {
+            workExperiences: true,
+            educations: true,
+          },
+        },
+      },
+    });
+
+    if (!resume) throw new Error("Resume not found");
+
+    const filled: string[] = [];
+
+    // Contact Info — skip if already exists
+    if (!resume.ContactInfo && parsed.contact.firstName) {
+      await prisma.contactInfo.create({
+        data: {
+          resumeId,
+          firstName: parsed.contact.firstName,
+          lastName: parsed.contact.lastName,
+          headline: parsed.contact.headline ?? "",
+          email: parsed.contact.email ?? "",
+          phone: parsed.contact.phone ?? "",
+          address: parsed.contact.address ?? null,
+        },
+      });
+      filled.push("Contact Info");
+    }
+
+    // Summary — skip if section already exists
+    const hasSummary = resume.ResumeSections.some(
+      (s) => s.sectionType === SectionType.SUMMARY,
+    );
+    if (!hasSummary && parsed.summary) {
+      const section = await prisma.resumeSection.create({
+        data: { resumeId, sectionTitle: "Summary", sectionType: SectionType.SUMMARY },
+      });
+      await prisma.resumeSection.update({
+        where: { id: section.id },
+        data: { summary: { create: { content: parsed.summary } } },
+      });
+      filled.push("Summary");
+    }
+
+    // Experience — skip if section already has entries
+    const expSection = resume.ResumeSections.find(
+      (s) => s.sectionType === SectionType.EXPERIENCE,
+    );
+    const hasExperience = expSection && expSection.workExperiences.length > 0;
+    if (!hasExperience && parsed.experiences.length > 0) {
+      const section = expSection ?? (await prisma.resumeSection.create({
+        data: { resumeId, sectionTitle: "Experience", sectionType: SectionType.EXPERIENCE },
+      }));
+
+      for (const exp of parsed.experiences) {
+        const companyValue = exp.company.toLowerCase().trim();
+        const jobTitleValue = exp.jobTitle.toLowerCase().trim();
+        const locationValue = (exp.location ?? "").toLowerCase().trim() || "unknown";
+
+        const [company, jobTitle, location] = await Promise.all([
+          prisma.company.upsert({
+            where: { value_createdBy: { value: companyValue, createdBy: user.id } },
+            update: {},
+            create: { label: exp.company, value: companyValue, createdBy: user.id },
+          }),
+          prisma.jobTitle.upsert({
+            where: { value_createdBy: { value: jobTitleValue, createdBy: user.id } },
+            update: {},
+            create: { label: exp.jobTitle, value: jobTitleValue, createdBy: user.id },
+          }),
+          prisma.location.upsert({
+            where: { value_createdBy: { value: locationValue, createdBy: user.id } },
+            update: {},
+            create: { label: exp.location ?? "Unknown", value: locationValue, createdBy: user.id },
+          }),
+        ]);
+
+        const startDate = parseDateString(exp.startDate) ?? new Date();
+        const endDate = exp.currentJob ? null : parseDateString(exp.endDate) ?? null;
+
+        await prisma.resumeSection.update({
+          where: { id: section.id },
+          data: {
+            workExperiences: {
+              create: {
+                companyId: company.id,
+                jobTitleId: jobTitle.id,
+                locationId: location.id,
+                startDate,
+                endDate,
+                description: exp.description ?? "",
+              },
+            },
+          },
+        });
+      }
+      filled.push("Experience");
+    }
+
+    // Education — skip if section already has entries
+    const eduSection = resume.ResumeSections.find(
+      (s) => s.sectionType === SectionType.EDUCATION,
+    );
+    const hasEducation = eduSection && eduSection.educations.length > 0;
+    if (!hasEducation && parsed.educations.length > 0) {
+      const section = eduSection ?? (await prisma.resumeSection.create({
+        data: { resumeId, sectionTitle: "Education", sectionType: SectionType.EDUCATION },
+      }));
+
+      for (const edu of parsed.educations) {
+        const locationValue = (edu.location ?? "").toLowerCase().trim() || "unknown";
+
+        const location = await prisma.location.upsert({
+          where: { value_createdBy: { value: locationValue, createdBy: user.id } },
+          update: {},
+          create: { label: edu.location ?? "Unknown", value: locationValue, createdBy: user.id },
+        });
+
+        await prisma.resumeSection.update({
+          where: { id: section.id },
+          data: {
+            educations: {
+              create: {
+                institution: edu.institution,
+                degree: edu.degree ?? "",
+                fieldOfStudy: edu.fieldOfStudy ?? "",
+                locationId: location.id,
+                startDate: parseDateString(edu.startDate) ?? new Date(),
+                endDate: parseDateString(edu.endDate) ?? null,
+                description: edu.description ?? null,
+              },
+            },
+          },
+        });
+      }
+      filled.push("Education");
+    }
+
+    revalidatePath(`/dashboard/profile/resume/${resumeId}`);
+    return { success: true, filled };
+  } catch (error) {
+    const msg = "Failed to apply parsed resume.";
+    console.error(msg, error);
+    const message = error instanceof Error ? error.message : msg;
+    return { success: false, filled: [], error: message };
   }
 };
 

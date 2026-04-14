@@ -2,6 +2,7 @@
 const nextConfig = {
   output: "standalone",
   devIndicators: false,
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
   async headers() {
     return [
       {

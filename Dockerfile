@@ -1,10 +1,9 @@
-FROM node:22-alpine AS base
-RUN npm install -g npm@11
+FROM node:24-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 # Set the working directory
 WORKDIR /app
 

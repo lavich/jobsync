@@ -29,7 +29,14 @@ describe("ProfileContainer Component", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await act(async () => {
-      render(<ProfileContainer />);
+      render(
+        <ProfileContainer
+          initialResumes={[]}
+          initialTotalResumes={0}
+          initialCoverLetters={[]}
+          initialTotalCoverLetters={0}
+        />,
+      );
     });
   });
 

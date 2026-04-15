@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CreateResume from "./CreateResume";
 import CreateCoverLetter from "./CreateCoverLetter";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -25,22 +25,35 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
-const ProfileContainer = () => {
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
+type Props = {
+  initialResumes: Resume[];
+  initialTotalResumes: number;
+  initialCoverLetters: CoverLetter[];
+  initialTotalCoverLetters: number;
+};
+
+const ProfileContainer = ({
+  initialResumes,
+  initialTotalResumes,
+  initialCoverLetters,
+  initialTotalCoverLetters,
+}: Props) => {
+  const [resumes, setResumes] = useState<Resume[]>(initialResumes);
+  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>(initialCoverLetters);
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const [coverLetterDialogOpen, setCoverLetterDialogOpen] = useState(false);
 
   const [resumeToEdit, setResumeToEdit] = useState<Resume | null>(null);
   const [coverLetterToEdit, setCoverLetterToEdit] =
     useState<CoverLetter | null>(null);
-  const [totalResumes, setTotalResumes] = useState<number>(0);
-  const [totalCoverLetters, setTotalCoverLetters] = useState<number>(0);
+  const [totalResumes, setTotalResumes] = useState<number>(initialTotalResumes);
+  const [totalCoverLetters, setTotalCoverLetters] = useState<number>(initialTotalCoverLetters);
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [recordsPerPage, setRecordsPerPage] = useState<number>(
     APP_CONSTANTS.RECORDS_PER_PAGE,
   );
+  const prevRecordsPerPage = useRef(recordsPerPage);
 
   const loadResumes = useCallback(
     async (page: number) => {
@@ -94,8 +107,10 @@ const ProfileContainer = () => {
   }, [loadDocuments]);
 
   useEffect(() => {
-    (async () => await loadDocuments(1))();
-  }, [loadDocuments, recordsPerPage]);
+    if (prevRecordsPerPage.current === recordsPerPage) return;
+    prevRecordsPerPage.current = recordsPerPage;
+    loadDocuments(1);
+  }, [recordsPerPage, loadDocuments]);
 
   const documents: ProfileDocument[] = useMemo(() => {
     const resumeDocs: ProfileDocument[] = resumes.map((r) => ({

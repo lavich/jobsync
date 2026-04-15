@@ -2,7 +2,7 @@
 const nextConfig = {
   output: "standalone",
   devIndicators: false,
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth"],
+  serverExternalPackages: ["pdf-parse", "mammoth"],
   async headers() {
     return [
       {

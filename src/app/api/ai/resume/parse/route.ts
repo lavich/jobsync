@@ -16,9 +16,9 @@ async function extractText(filePath: string): Promise<string> {
   const buffer = fs.readFileSync(filePath);
 
   if (ext === ".pdf") {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    const result = await parser.getText();
+    // pdf-parse v1 — Node.js compatible, no browser API dependencies
+    const pdfParse = (await import("pdf-parse")).default;
+    const result = await pdfParse(buffer);
     return result.text;
   }
 

@@ -12,9 +12,11 @@ import {
 import type {
   AutomationWithResume,
   AutomationRun,
+  MatchResult,
   DiscoveredJob,
   DiscoveryStatus,
 } from "@/models/automation.model";
+import type { AutomationLog } from "@/lib/automation-logger";
 import { APP_CONSTANTS } from "@/lib/constants";
 
 const MAX_AUTOMATIONS_PER_USER = 10;
@@ -600,6 +602,23 @@ export async function getAutomationRuns(
         skip,
         take: limit,
         orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          automationId: true,
+          jobsSearched: true,
+          jobsDeduplicated: true,
+          jobsProcessed: true,
+          jobsMatched: true,
+          jobsSaved: true,
+          status: true,
+          errorMessage: true,
+          blockedReason: true,
+          startedAt: true,
+          completedAt: true,
+          errorCount: true,
+          warningCount: true,
+          // logs and matchResults omitted — fetched on demand
+        },
       }),
       db.automationRun.count({ where: { automationId } }),
     ]);
@@ -611,5 +630,37 @@ export async function getAutomationRuns(
     };
   } catch (error) {
     return formatError(error, "Failed to get automation runs");
+  }
+}
+
+export async function getAutomationRunLogs(runId: string): Promise<{
+  success: boolean;
+  data?: { logs: AutomationLog[] | null; matchResults: MatchResult[] | null };
+  message?: string;
+}> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, message: "Not authenticated" };
+    }
+
+    const run = await db.automationRun.findFirst({
+      where: { id: runId, automation: { userId: user.id } },
+      select: { logs: true, matchResults: true },
+    });
+
+    if (!run) {
+      return { success: false, message: "Run not found" };
+    }
+
+    return {
+      success: true,
+      data: {
+        logs: run.logs as unknown as AutomationLog[] | null,
+        matchResults: run.matchResults as unknown as MatchResult[] | null,
+      },
+    };
+  } catch (error) {
+    return formatError(error, "Failed to get run logs");
   }
 }

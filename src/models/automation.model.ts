@@ -1,4 +1,5 @@
 // Automation types and interfaces
+import type { AutomationLog } from "@/lib/automation-logger";
 
 export type AutomationStatus = "active" | "paused";
 export type AutomationRunStatus =
@@ -36,6 +37,14 @@ export interface AutomationWithResume extends Automation {
   };
 }
 
+export interface MatchResult {
+  title: string;
+  company: string;
+  score: number;
+  passed: boolean;
+  saved: boolean;
+}
+
 export interface AutomationRun {
   id: string;
   automationId: string;
@@ -49,6 +58,10 @@ export interface AutomationRun {
   blockedReason: string | null;
   startedAt: Date;
   completedAt: Date | null;
+  logs: AutomationLog[] | null;
+  matchResults: MatchResult[] | null;
+  errorCount: number;
+  warningCount: number;
 }
 
 export interface DiscoveredJob {

@@ -19,6 +19,7 @@ import type { JobMatchResponse } from "@/models/ai.schemas";
 import { DiscoveredJobsList } from "@/components/automations/DiscoveredJobsList";
 import { DiscoveredJobDetail } from "@/components/automations/DiscoveredJobDetail";
 import { RunHistoryList } from "@/components/automations/RunHistoryList";
+import { RunDetailsDialog } from "@/components/automations/RunDetailsDialog";
 import { LogsTab } from "@/components/automations/LogsTab";
 
 interface AutomationDetailClientProps {
@@ -34,6 +35,8 @@ export function AutomationDetailClient({ automation, runs, jobs }: AutomationDet
   const [detailOpen, setDetailOpen] = useState(false);
   const [runKey, setRunKey] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [detailsDialogRunId, setDetailsDialogRunId] = useState<string | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const resumeMissing = !automation.resume;
   const newJobsCount = jobs.filter((j) => j.discoveryStatus === "new").length;
@@ -48,6 +51,11 @@ export function AutomationDetailClient({ automation, runs, jobs }: AutomationDet
       setSelectedJobMatchData(null);
     }
     setDetailOpen(true);
+  };
+
+  const handleViewRunDetails = (runId: string) => {
+    setDetailsDialogRunId(runId);
+    setDetailsDialogOpen(true);
   };
 
   const handleRefresh = () => {
@@ -170,9 +178,15 @@ export function AutomationDetailClient({ automation, runs, jobs }: AutomationDet
           />
         </TabsContent>
         <TabsContent value="history" className="mt-4">
-          <RunHistoryList runs={runs} />
+          <RunHistoryList runs={runs} onViewDetails={handleViewRunDetails} />
         </TabsContent>
       </Tabs>
+
+      <RunDetailsDialog
+        runId={detailsDialogRunId}
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+      />
 
       <DiscoveredJobDetail
         job={selectedJob}

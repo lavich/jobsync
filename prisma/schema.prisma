@@ -423,6 +423,11 @@ model AutomationRun {
   startedAt   DateTime  @default(now())
   completedAt DateTime?
 
+  logs         Json?
+  matchResults Json?
+  errorCount   Int @default(0)
+  warningCount Int @default(0)
+
   @@index([automationId])
   @@index([startedAt])
 }

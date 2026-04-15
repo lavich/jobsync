@@ -27,7 +27,7 @@ import {
   DeepseekModel,
   GeminiModel,
 } from "@/models/ai.model";
-import type { Resume as PrismaResume } from "@prisma/client";
+import { Prisma, type Resume as PrismaResume } from "@prisma/client";
 import { automationLogger } from "@/lib/automation-logger";
 import {
   defaultUserSettings,
@@ -257,6 +257,8 @@ export async function runAutomation(
       automationLogger.endRun(automation.id);
 
       return await finalizeRun(run.id, {
+        automationId: automation.id,
+        matchResults: [],
         status: "failed",
         errorMessage: "resume_missing",
         jobsSearched: 0,
@@ -287,6 +289,8 @@ export async function runAutomation(
 
       const status = getStatusFromError(searchResult.error);
       return await finalizeRun(run.id, {
+        automationId: automation.id,
+        matchResults: [],
         status,
         errorMessage:
           searchResult.error.type === "network"
@@ -322,6 +326,8 @@ export async function runAutomation(
       automationLogger.endRun(automation.id);
 
       return await finalizeRun(run.id, {
+        automationId: automation.id,
+        matchResults: [],
         status: "completed",
         jobsSearched: 0,
         jobsDeduplicated: 0,
@@ -364,6 +370,7 @@ export async function runAutomation(
     let jobsMatched = 0;
     let jobsSaved = 0;
     let aiError: string | null = null;
+    const matchResults: MatchResult[] = [];
 
     const aiSettings = await getUserAiSettings(automation.userId);
 
@@ -413,7 +420,16 @@ export async function runAutomation(
         { score: matchResult.score, threshold: automation.matchThreshold },
       );
 
-      if (matchResult.score < automation.matchThreshold) {
+      const passed = matchResult.score >= automation.matchThreshold;
+      matchResults.push({
+        title: job.title,
+        company: job.company,
+        score: matchResult.score,
+        passed,
+        saved: false,
+      });
+
+      if (!passed) {
         automationLogger.log(
           automation.id,
           "info",
@@ -459,6 +475,7 @@ export async function runAutomation(
 
         await db.job.create({ data: jobRecord });
         jobsSaved++;
+        matchResults[matchResults.length - 1].saved = true;
 
         automationLogger.log(
           automation.id,
@@ -504,6 +521,8 @@ export async function runAutomation(
     automationLogger.endRun(automation.id);
 
     return await finalizeRun(run.id, {
+      automationId: automation.id,
+      matchResults,
       status: finalStatus,
       errorMessage: aiError || undefined,
       jobsSearched,
@@ -523,6 +542,8 @@ export async function runAutomation(
 
     console.error("Automation run failed:", error);
     return await finalizeRun(run.id, {
+      automationId: automation.id,
+      matchResults: [],
       status: "failed",
       errorMessage: message,
       jobsSearched: 0,
@@ -549,7 +570,7 @@ async function getExistingJobUrls(userId: string): Promise<Set<string>> {
   return urls;
 }
 
-interface MatchResult {
+interface AiMatchResult {
   success: boolean;
   score: number;
   data?: object;
@@ -562,7 +583,7 @@ async function matchJobToResume(
   sourceBoard: JobBoard,
   aiSettings: AiSettings,
   userId: string,
-): Promise<MatchResult> {
+): Promise<AiMatchResult> {
   try {
     const resumeText = await convertResumeForMatch(resume);
     const jobText = `
@@ -683,7 +704,17 @@ function getStatusFromError(error: ScraperError): AutomationRunStatus {
   }
 }
 
+interface MatchResult {
+  title: string;
+  company: string;
+  score: number;
+  passed: boolean;
+  saved: boolean;
+}
+
 interface FinalizeData {
+  automationId: string;
+  matchResults: MatchResult[];
   status: AutomationRunStatus;
   errorMessage?: string;
   blockedReason?: string;
@@ -698,6 +729,10 @@ async function finalizeRun(
   runId: string,
   data: FinalizeData,
 ): Promise<RunnerResult> {
+  const logsToSave = automationLogger.getLogs(data.automationId);
+  const errorCount = logsToSave.filter((l) => l.level === "error").length;
+  const warningCount = logsToSave.filter((l) => l.level === "warning").length;
+
   const run = await db.automationRun.update({
     where: { id: runId },
     data: {
@@ -710,6 +745,14 @@ async function finalizeRun(
       jobsMatched: data.jobsMatched,
       jobsSaved: data.jobsSaved,
       completedAt: new Date(),
+      logs: logsToSave.length > 0
+        ? (logsToSave as unknown as Prisma.InputJsonValue)
+        : undefined,
+      matchResults: data.matchResults.length > 0
+        ? (data.matchResults as unknown as Prisma.InputJsonValue)
+        : undefined,
+      errorCount,
+      warningCount,
     },
   });
 

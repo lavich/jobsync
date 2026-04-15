@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -31,11 +32,13 @@ import {
   Ban,
   Timer,
   History,
+  ScrollText,
 } from "lucide-react";
 import type { AutomationRun } from "@/models/automation.model";
 
 interface RunHistoryListProps {
   runs: AutomationRun[];
+  onViewDetails: (runId: string) => void;
 }
 
 const STATUS_CONFIG = {
@@ -47,7 +50,7 @@ const STATUS_CONFIG = {
   rate_limited: { icon: Timer, color: "text-amber-500", variant: "secondary" as const },
 };
 
-export function RunHistoryList({ runs }: RunHistoryListProps) {
+export function RunHistoryList({ runs, onViewDetails }: RunHistoryListProps) {
   if (runs.length === 0) {
     return (
       <Card>
@@ -83,6 +86,7 @@ export function RunHistoryList({ runs }: RunHistoryListProps) {
               <TableHead className="text-center">Matched</TableHead>
               <TableHead className="text-center">Saved</TableHead>
               <TableHead>Error</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,9 +102,15 @@ export function RunHistoryList({ runs }: RunHistoryListProps) {
               return (
                 <TableRow key={run.id}>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <StatusIcon className={`h-4 w-4 ${config.color}`} />
                       <Badge variant={config.variant}>{run.status.replace("_", " ")}</Badge>
+                      {run.errorCount > 0 && (
+                        <Badge variant="destructive" className="text-xs">{run.errorCount} err</Badge>
+                      )}
+                      {run.warningCount > 0 && (
+                        <Badge variant="secondary" className="text-xs">{run.warningCount} warn</Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -133,6 +143,17 @@ export function RunHistoryList({ runs }: RunHistoryListProps) {
                         </Tooltip>
                       </TooltipProvider>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onViewDetails(run.id)}
+                      disabled={run.status === "running"}
+                      title={run.status === "running" ? "Available after run completes" : "View details"}
+                    >
+                      <ScrollText className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );

@@ -11,20 +11,19 @@ import { ResumeParseSchema } from "@/models/ai.schemas";
 import { RESUME_PARSE_SYSTEM_PROMPT, buildResumeParsePrompt } from "@/lib/ai/prompts";
 import { AiModel } from "@/models/ai.model";
 import { getResumeById } from "@/actions/profile.actions";
-import { PDFParse } from "pdf-parse";
-import mammoth from "mammoth";
-
 async function extractText(filePath: string): Promise<string> {
   const ext = path.extname(filePath).toLowerCase();
   const buffer = fs.readFileSync(filePath);
 
   if (ext === ".pdf") {
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     const result = await parser.getText();
     return result.text;
   }
 
   if (ext === ".docx") {
+    const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   }
